@@ -1,0 +1,300 @@
+﻿#define _CRT_SECURE_NO_WARNINGS
+#define _SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING
+#include <zip.h>
+#include <experimental/filesystem>
+#include <iostream>
+#include <string>
+#include <fstream>
+#include <windows.h>
+#include <TCHAR.H>
+#include <sys/stat.h>
+#include <time.h>
+
+using namespace std;
+
+#define serviceName _T("Archivator")
+#define servicePath _T("C:/Users/AleksYum/source/repos/BSIT_2/x64/Debug/BSIT_2.exe")
+SERVICE_STATUS serviceStatus;
+SERVICE_STATUS_HANDLE hStatus;
+
+bool check(string p, string m)
+{
+	int i = 0, j = 0, lm = -1, lp = 0;
+	while (p[i])
+	{
+		if (m[j] == '*')
+			lp = i, lm = ++j;
+		else if (p[i] == m[j] || m[j] == '?')
+			i++, j++;
+		else if (p[i] != m[j])
+		{
+			if (lm == -1) return false;
+			i = ++lp;
+			j = lm;
+		}
+	}
+	if (!m[j]) return !p[i];
+	return false;
+}
+
+string get_filename(const experimental::filesystem::path& p) { return p.filename().string(); }
+
+
+void log_write(const char* msg)
+{
+	time_t raw_time;
+	time(&raw_time);
+	struct tm* time_info = localtime(&raw_time);
+	FILE* log = fopen("out.log", "a");
+	if (log == NULL)
+	{
+		return;
+	}
+	char* time = asctime(time_info);
+	time[strlen(time) - 1] = '\0';
+	fprintf(log, "::%s", time);
+	fprintf(log, "::%s\n", msg);
+	fclose(log);
+}
+
+void add_file_to_zip(const char* zip_name, const char* dir_file_name, const char* file_name)
+{
+	int errors;
+	WIN32_FIND_DATAA wfd;
+	HANDLE hFinde = FindFirstFileA(zip_name, &wfd);
+	zip_t* archive;
+	if (INVALID_HANDLE_VALUE == hFinde)
+	{
+		archive = zip_open(zip_name, ZIP_CREATE, &errors);
+	}
+	else
+	{
+
+		 archive = zip_open(zip_name, 0, &errors);
+	}
+	zip_source_t* inp_file = zip_source_file(archive, dir_file_name, 0, -1);
+	if (inp_file == NULL)
+	{
+		log_write("Add file error");
+		zip_close(archive);
+		return;
+	}
+	zip_file_add(archive, file_name, inp_file, ZIP_FL_OVERWRITE);
+	zip_close(archive);
+
+}
+
+void res_copy()
+{
+	ifstream in;
+	string cat, arch, mask;
+
+	int err;
+	in.open("C:\\..\\config.ini");//Ввести путь до конфигурационного файла
+	getline(in, cat);
+	getline(in, arch);
+
+	while (getline(in, mask))
+	{
+		for (const auto& dirEntry : experimental::filesystem::recursive_directory_iterator(cat)) {
+			if (check(get_filename(dirEntry.path()), mask)) 
+			{
+				string path = dirEntry.path().string();
+				path.erase(0, cat.size() + 1);
+				add_file_to_zip(arch.c_str(), dirEntry.path().string().c_str(), path.c_str());
+			}
+		}
+	}
+	//log_write("Copy finished");
+	Sleep(60000);
+	
+}
+
+void ControlHandler(DWORD request) {
+	switch (request)
+	{
+	case SERVICE_CONTROL_STOP:
+		serviceStatus.dwWin32ExitCode = 0;
+		serviceStatus.dwCurrentState = SERVICE_STOPPED;
+		SetServiceStatus(hStatus, &serviceStatus);
+		return;
+	case SERVICE_CONTROL_SHUTDOWN:
+		log_write("Shutdown.");
+		serviceStatus.dwWin32ExitCode = 0;
+		serviceStatus.dwCurrentState = SERVICE_STOPPED;
+		SetServiceStatus(hStatus, &serviceStatus);
+		return;
+	default:
+		break;
+	}
+	SetServiceStatus(hStatus, &serviceStatus);
+	return;
+}
+
+void Service_Main(int argc, char** argv) {
+
+	int i = 0;
+	log_write("main start");
+	serviceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
+	serviceStatus.dwCurrentState = SERVICE_START_PENDING;
+	serviceStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SHUTDOWN;
+	serviceStatus.dwWin32ExitCode = 0;
+	serviceStatus.dwServiceSpecificExitCode = 0;
+	serviceStatus.dwCheckPoint = 0;
+	serviceStatus.dwWaitHint = 0;
+	hStatus = RegisterServiceCtrlHandler(serviceName, (LPHANDLER_FUNCTION)ControlHandler);
+
+	if (hStatus == (SERVICE_STATUS_HANDLE)0) {
+		log_write("unexpected ret");
+		return;
+	}
+	log_write("start_copy");
+	serviceStatus.dwCurrentState = SERVICE_RUNNING;
+	SetServiceStatus(hStatus, &serviceStatus);
+	
+	while (serviceStatus.dwCurrentState == SERVICE_RUNNING)
+	{
+		res_copy();	
+	}
+	return;
+}
+
+int InstallService() {
+	SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
+	if (!hSCManager) {
+		log_write("Can't open Service Control Manager");
+		return -1;
+	}
+
+	SC_HANDLE hService = CreateService(
+		hSCManager,
+		serviceName,
+		serviceName,
+		SERVICE_ALL_ACCESS,
+		SERVICE_WIN32_OWN_PROCESS,
+		SERVICE_DEMAND_START,
+		SERVICE_ERROR_NORMAL,
+		servicePath,
+		NULL, NULL, NULL, NULL, NULL
+	);
+	if (!hService) {
+		int err = GetLastError();
+		switch (err) {
+		case ERROR_ACCESS_DENIED:
+			log_write("Access denied error");
+			break;
+		case ERROR_CIRCULAR_DEPENDENCY:
+			log_write("Circular deppendency error");
+			break;
+		case ERROR_DUPLICATE_SERVICE_NAME:
+			log_write("Dupplicate service name error");
+			break;
+		case ERROR_INVALID_HANDLE:
+			log_write("Invalid handle error");
+			break;
+		case ERROR_INVALID_NAME:
+			log_write("Invalid name error");
+			break;
+		case ERROR_INVALID_PARAMETER:
+			log_write("Invalid parameter error");
+			break;
+		case ERROR_INVALID_SERVICE_ACCOUNT:
+			log_write("Invalid service account error");
+			break;
+		case ERROR_SERVICE_EXISTS:
+			log_write("Service exist error");
+			break;
+		default:
+			log_write("Undefined error");
+		}
+		CloseServiceHandle(hSCManager);
+		return -1;
+	}
+	CloseServiceHandle(hService);
+	CloseServiceHandle(hSCManager);
+	log_write("Success install service");
+	return 0;
+}
+
+int RemoveService() {
+
+	SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+	if (!hSCManager) {
+		log_write("Can't open Service Control Manager");
+		return -1;
+	}
+
+	SC_HANDLE hService = OpenService(hSCManager, serviceName, SERVICE_STOP | DELETE);
+	if (!hService) {
+		log_write("Can't remove service");
+		CloseServiceHandle(hSCManager);
+		return -1;
+	}
+
+	DeleteService(hService);
+	CloseServiceHandle(hService);
+	CloseServiceHandle(hSCManager);
+	log_write("Success remove service!");
+	return 0;
+}
+int Start_Service() {
+
+	SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
+	SC_HANDLE hService = OpenService(hSCManager, serviceName, SERVICE_START);
+
+	if (!StartService(hService, 0, NULL)) {
+		CloseServiceHandle(hSCManager);
+		log_write("Can't start service");
+		return -1;
+	}
+	CloseServiceHandle(hService);
+	CloseServiceHandle(hSCManager);
+	log_write("Service started");
+	return 0;
+}
+
+int Stop_Service() {
+
+	SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
+	SC_HANDLE hService = OpenService(hSCManager, serviceName, SERVICE_STOP);
+	SERVICE_STATUS ss;
+
+	if (!ControlService(hService, SERVICE_CONTROL_STOP, &ss))
+	{
+		CloseServiceHandle(hSCManager);
+		log_write("Impossible stop service");
+		return -1;
+	}
+	log_write("Success stopped service");
+	CloseServiceHandle(hService);
+	CloseServiceHandle(hSCManager);
+	return 0;
+}
+
+int _tmain(int argc, _TCHAR* argv[]) {
+
+	SERVICE_TABLE_ENTRY ServiceTable[2];
+	ServiceTable[0].lpServiceName = (LPWSTR)serviceName;
+	ServiceTable[0].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)Service_Main;
+	ServiceTable[1].lpServiceName = NULL;
+	ServiceTable[1].lpServiceProc = NULL;
+
+	if (argc - 1 == 0) {
+
+		if (!StartServiceCtrlDispatcher(ServiceTable)) {
+			log_write("StartServiceCtrlDispatcher error");
+		}
+	}
+	else if (wcscmp(argv[argc - 1], _T("install")) == 0) {
+		InstallService();
+	}
+	else if (wcscmp(argv[argc - 1], _T("remove")) == 0) {
+		RemoveService();
+	}
+	else if (wcscmp(argv[argc - 1], _T("start")) == 0) {
+		Start_Service();
+	}
+	else if (wcscmp(argv[argc - 1], _T("stop")) == 0) {
+		Stop_Service();
+	}
+}

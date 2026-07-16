@@ -1,0 +1,33 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.11.35303.130
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BSIT_2", "BSIT_2\BSIT_2.vcxproj", "{0106A9AB-7B38-4113-BD1C-3088E3AA9EAF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Элементы решения", "Элементы решения", "{1969BD14-7E53-4008-A4A3-D1FF9C6FAD35}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0106A9AB-7B38-4113-BD1C-3088E3AA9EAF}.Debug|x64.ActiveCfg = Debug|x64
+		{0106A9AB-7B38-4113-BD1C-3088E3AA9EAF}.Debug|x64.Build.0 = Debug|x64
+		{0106A9AB-7B38-4113-BD1C-3088E3AA9EAF}.Debug|x86.ActiveCfg = Debug|Win32
+		{0106A9AB-7B38-4113-BD1C-3088E3AA9EAF}.Debug|x86.Build.0 = Debug|Win32
+		{0106A9AB-7B38-4113-BD1C-3088E3AA9EAF}.Release|x64.ActiveCfg = Release|x64
+		{0106A9AB-7B38-4113-BD1C-3088E3AA9EAF}.Release|x64.Build.0 = Release|x64
+		{0106A9AB-7B38-4113-BD1C-3088E3AA9EAF}.Release|x86.ActiveCfg = Release|Win32
+		{0106A9AB-7B38-4113-BD1C-3088E3AA9EAF}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A318ACB0-45E3-444F-834D-FF2A54E12DE0}
+	EndGlobalSection
+EndGlobal
